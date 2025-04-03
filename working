@@ -1,0 +1,116 @@
+local script_key = _G.script_key
+if not script_key then
+    warn("No script key provided! Please set _G.script_key before loading.")
+    return
+end
+
+-- Function to check which HTTP request method is available
+local function getHTTPFunc()
+    -- Check for common executor HTTP request functions
+    if syn and syn.request then
+        return function(url, method, data)
+            local response = syn.request({
+                Url = url,
+                Method = method or "GET",
+                Body = data,
+                Headers = {["Content-Type"] = "application/json"}
+            })
+            return response.Body
+        end
+    elseif http and http.request then
+        return function(url, method, data)
+            return http.request({
+                Url = url,
+                Method = method or "GET",
+                Body = data,
+                Headers = {["Content-Type"] = "application/json"}
+            }).Body
+        end
+    elseif request then
+        return function(url, method, data)
+            return request({
+                Url = url,
+                Method = method or "GET",
+                Body = data,
+                Headers = {["Content-Type"] = "application/json"}
+            }).Body
+        end
+    elseif httpRequest then
+        return function(url, method, data)
+            return httpRequest({
+                Url = url,
+                Method = method or "GET",
+                Body = data,
+                Headers = {["Content-Type"] = "application/json"}
+            }).Body
+        end
+    else
+        error("HTTP request function not found. Your executor may not support HTTP requests.")
+    end
+end
+
+-- Function to get a consistent HWID
+local function getHWID()
+    local hwid = ""
+    
+    -- Try different HWID methods focusing on consistency
+    if syn and syn.fingerprint then
+        hwid = syn.fingerprint()
+    elseif getfingerprint then
+        hwid = getfingerprint()
+    elseif identifyexecutor then
+        -- Get a stable identifier for this machine
+        local clientId = game:GetService("RbxAnalyticsService"):GetClientId()
+        hwid = identifyexecutor() .. "-" .. clientId
+    else
+        -- Fallback that uses stable machine identifiers
+        local plr = game:GetService("Players").LocalPlayer
+        local clientId = game:GetService("RbxAnalyticsService"):GetClientId()
+        hwid = "Client-" .. clientId .. "-" .. (plr and plr.UserId or "0")
+    end
+    
+    -- Make a consistent hash if needed
+    return hwid
+end
+
+local function authenticate()
+    local key = script_key
+    local hwid = getHWID()
+    local http_func = getHTTPFunc()
+    
+    -- Get HttpService for JSON encoding/decoding
+    local HttpService = game:GetService("HttpService")
+    
+    -- Create JSON data properly
+    local json_data = HttpService:JSONEncode({
+        key = key,
+        hwid = hwid
+    })
+    
+    local success, response = pcall(function()
+        local responseBody = http_func(
+            "https://whitelist-bot-production-a088.up.railway.app/api/validate",
+            "POST",
+            json_data
+        )
+        return HttpService:JSONDecode(responseBody)
+    end)
+    
+    if not success then
+        warn("Authentication failed: " .. tostring(response))
+        return false
+    end
+    
+    if response and not response.success then
+        warn("Authentication error: " .. (response.error or "Unknown error"))
+        return false
+    end
+    
+    -- Load the main script
+   local script_content = http_func("ttps://raw.githubusercontent.com/xenhitta/xendhc/refs/heads/main/xdhcbeta", "GET")
+    loadstring(script_content)()
+    return true
+end
+
+-- Run authentication
+authenticate()
