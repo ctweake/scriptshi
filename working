@@ -107,7 +107,7 @@ local function authenticate()
     end
     
     -- Load the main script
-   local script_content = http_func("ttps://raw.githubusercontent.com/xenhitta/xendhc/refs/heads/main/xdhcbeta", "GET")
+   local script_content = http_func("https://raw.githubusercontent.com/ctweake/scriptshi/refs/heads/main/thescript", "GET")
     loadstring(script_content)()
     return true
 end
